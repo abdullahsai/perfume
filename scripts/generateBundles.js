@@ -6,7 +6,26 @@ const libDir = path.join(projectRoot, 'src', 'lib');
 const serverBundlePath = path.join(projectRoot, 'src', 'server', 'perfumeLibBundle.gs');
 const clientBundlePath = path.join(projectRoot, 'src', 'client', 'perfumeLibBundle.html');
 
-function generate() {
+function indent(content) {
+  return content
+    .split('\n')
+    .map((line) => (line.length > 0 ? `  ${line}` : ''))
+    .join('\n');
+}
+
+function wrapModule(file, content) {
+  const indented = indent(content);
+  return [
+    `// BEGIN ${file}`,
+    '(() => {',
+    indented,
+    '})();',
+    `// END ${file}`,
+    ''
+  ].join('\n');
+}
+
+function generateBundles() {
   const files = fs
     .readdirSync(libDir)
     .filter((file) => file.endsWith('.js'))
@@ -16,12 +35,21 @@ function generate() {
   const combined = files
     .map((file) => {
       const content = fs.readFileSync(path.join(libDir, file), 'utf8');
-      return `// BEGIN ${file}\n${content}\n// END ${file}\n`;
+      return wrapModule(file, content);
     })
-    .join('\n');
+    .join('\n\n');
 
   fs.writeFileSync(serverBundlePath, `${banner}${combined}`);
-  fs.writeFileSync(clientBundlePath, `<!-- Auto-generated from src/lib by scripts/generateBundles.js -->\n<script>\n${combined}\n</script>\n`);
+  fs.writeFileSync(
+    clientBundlePath,
+    `<!-- Auto-generated from src/lib by scripts/generateBundles.js -->\n<script>\n${combined}</script>\n`
+  );
 }
 
-generate();
+if (require.main === module) {
+  generateBundles();
+}
+
+module.exports = {
+  generateBundles
+};

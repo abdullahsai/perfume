@@ -1,459 +1,469 @@
 <!-- Auto-generated from src/lib by scripts/generateBundles.js -->
 <script>
 // BEGIN costCalculator.js
-var PerfumeLib =
-  (typeof globalThis !== 'undefined' && globalThis.PerfumeLib) ||
-  (typeof self !== 'undefined' && self.PerfumeLib) ||
-  {};
+(() => {
+  var PerfumeLib =
+    (typeof globalThis !== 'undefined' && globalThis.PerfumeLib) ||
+    (typeof self !== 'undefined' && self.PerfumeLib) ||
+    {};
 
-const COST_CONSTANTS = {
-  currency: 'USD'
-};
-
-function roundToTwo(num) {
-  return Math.round((num + Number.EPSILON) * 100) / 100;
-}
-
-function normalizeFormula(formula) {
-  if (!Array.isArray(formula) || formula.length === 0) {
-    throw new Error('Formula must be a non-empty array.');
-  }
-
-  return formula.map((component) => {
-    if (!component || typeof component !== 'object') {
-      throw new Error('Each formula component must be an object.');
-    }
-    const { materialId, quantityMg } = component;
-    if (!materialId) {
-      throw new Error('Formula component missing materialId.');
-    }
-    const qty = Number(quantityMg);
-    if (!Number.isFinite(qty) || qty <= 0) {
-      throw new Error(`Invalid quantity for material ${materialId}.`);
-    }
-    return {
-      materialId,
-      quantityMg: qty
-    };
-  });
-}
-
-function calculateBottleCost(formula, materialCatalog, options = {}) {
-  const normalizedFormula = normalizeFormula(formula);
-  if (!materialCatalog || typeof materialCatalog !== 'object') {
-    throw new Error('Material catalog must be provided as an object keyed by materialId.');
-  }
-  const margin = options.marginPercentage != null ? Number(options.marginPercentage) : 0.2;
-  if (!Number.isFinite(margin) || margin < 0) {
-    throw new Error('Margin percentage must be a non-negative number.');
-  }
-
-  let totalCost = 0;
-  const components = normalizedFormula.map(({ materialId, quantityMg }) => {
-    const catalogEntry = materialCatalog[materialId];
-    if (!catalogEntry) {
-      throw new Error(`Material ${materialId} missing from catalog.`);
-    }
-    const pricePerMg = Number(catalogEntry.pricePerMg);
-    if (!Number.isFinite(pricePerMg) || pricePerMg < 0) {
-      throw new Error(`Material ${materialId} has invalid price.`);
-    }
-    const wastageRate = Number(catalogEntry.wastageRate || 0);
-    if (wastageRate < 0 || wastageRate >= 1) {
-      throw new Error(`Material ${materialId} has invalid wastage rate.`);
-    }
-    const effectiveQuantity = quantityMg / (1 - wastageRate);
-    const cost = effectiveQuantity * pricePerMg;
-    totalCost += cost;
-    return {
-      materialId,
-      quantityMg,
-      effectiveQuantity,
-      pricePerMg,
-      cost: roundToTwo(cost)
-    };
-  });
-
-  const roundedCost = roundToTwo(totalCost);
-  const marginAmount = roundToTwo(roundedCost * margin);
-  const sellingPrice = roundToTwo(roundedCost + marginAmount);
-
-  return {
-    currency: COST_CONSTANTS.currency,
-    marginPercentage: margin,
-    cost: roundedCost,
-    marginAmount,
-    sellingPrice,
-    components
+  const COST_CONSTANTS = {
+    currency: 'USD'
   };
-}
 
-function summarizeFormula(formula) {
-  const normalizedFormula = normalizeFormula(formula);
-  const totalQuantity = normalizedFormula.reduce((acc, item) => acc + item.quantityMg, 0);
-  return {
-    totalComponents: normalizedFormula.length,
-    totalQuantityMg: totalQuantity
-  };
-}
-
-const exported = {
-  COST_CONSTANTS,
-  calculateBottleCost,
-  summarizeFormula
-};
-
-if (typeof module !== 'undefined' && module.exports) {
-  module.exports = exported;
-}
-
-if (typeof globalThis !== 'undefined') {
-  globalThis.PerfumeLib = globalThis.PerfumeLib || {};
-  globalThis.PerfumeLib.costCalculator = exported;
-}
-
-// END costCalculator.js
-
-// BEGIN logBuffer.js
-var PerfumeLib =
-  (typeof globalThis !== 'undefined' && globalThis.PerfumeLib) ||
-  (typeof self !== 'undefined' && self.PerfumeLib) ||
-  {};
-const { maskSensitiveFields } = (PerfumeLib.masker || {});
-const { validateLogEntry } = (PerfumeLib.logSchema || {});
-
-class LogBuffer {
-  constructor(options = {}) {
-    const {
-      capacity = 2000,
-      retentionMs = 1000 * 60 * 60 * 24 * 30,
-      batchSize = 40,
-      persistHandler = null,
-      now = () => Date.now()
-    } = options;
-
-    this.capacity = capacity;
-    this.retentionMs = retentionMs;
-    this.batchSize = batchSize;
-    this.persistHandler = persistHandler;
-    this.now = now;
-    this.buffer = [];
-    this.batch = [];
-    this.lastFlush = 0;
+  function roundToTwo(num) {
+    return Math.round((num + Number.EPSILON) * 100) / 100;
   }
 
-  normalize(entry) {
-    const candidate = Object.assign({}, entry);
-    candidate.timestamp = candidate.timestamp ? new Date(candidate.timestamp).toISOString() : new Date(this.now()).toISOString();
-    candidate.details = candidate.details && typeof candidate.details === 'object' ? candidate.details : {};
-    candidate.context = candidate.context && typeof candidate.context === 'object' ? candidate.context : {};
-    return candidate;
-  }
+  function normalizeFormula(formula) {
+    if (!Array.isArray(formula) || formula.length === 0) {
+      throw new Error('Formula must be a non-empty array.');
+    }
 
-  add(entry) {
-    const normalized = this.normalize(entry);
-    const validation = validateLogEntry ? validateLogEntry(normalized) : { valid: true, errors: [] };
-    if (!validation.valid) {
-      const error = new Error(`Invalid log entry: ${validation.errors.join('; ')}`);
-      error.validation = validation;
-      throw error;
-    }
-    const masked = maskSensitiveFields ? maskSensitiveFields(normalized) : normalized;
-    this.buffer.push(masked);
-    if (this.buffer.length > this.capacity) {
-      this.buffer.splice(0, this.buffer.length - this.capacity);
-    }
-    this.trimRetention();
-    this.batch.push(masked);
-    if (this.batch.length >= this.batchSize) {
-      this.flush();
-    }
-    return masked;
-  }
-
-  addMany(entries) {
-    if (!Array.isArray(entries)) {
-      throw new Error('addMany expects an array.');
-    }
-    return entries.map((entry) => this.add(entry));
-  }
-
-  trimRetention() {
-    if (!this.retentionMs) return;
-    const threshold = this.now() - this.retentionMs;
-    while (this.buffer.length > 0) {
-      const entry = this.buffer[0];
-      if (Date.parse(entry.timestamp) < threshold) {
-        this.buffer.shift();
-      } else {
-        break;
+    return formula.map((component) => {
+      if (!component || typeof component !== 'object') {
+        throw new Error('Each formula component must be an object.');
       }
-    }
-  }
-
-  flush() {
-    if (!this.persistHandler || this.batch.length === 0) {
-      this.batch = [];
-      return [];
-    }
-    const payload = this.batch.slice();
-    this.batch = [];
-    this.lastFlush = this.now();
-    this.persistHandler(payload);
-    return payload;
-  }
-
-  getEntries(filters = {}) {
-    const { level, origin, category, search, since } = filters;
-    return this.buffer.filter((entry) => {
-      if (level && entry.level !== level) return false;
-      if (origin && entry.origin !== origin) return false;
-      if (category && entry.category !== category) return false;
-      if (since && Date.parse(entry.timestamp) < Date.parse(since)) return false;
-      if (search) {
-        const haystack = JSON.stringify(entry).toLowerCase();
-        if (!haystack.includes(String(search).toLowerCase())) {
-          return false;
-        }
+      const { materialId, quantityMg } = component;
+      if (!materialId) {
+        throw new Error('Formula component missing materialId.');
       }
-      return true;
+      const qty = Number(quantityMg);
+      if (!Number.isFinite(qty) || qty <= 0) {
+        throw new Error(`Invalid quantity for material ${materialId}.`);
+      }
+      return {
+        materialId,
+        quantityMg: qty
+      };
     });
   }
 
-  stats(filters = {}) {
-    const entries = this.getEntries(filters);
-    const totals = entries.reduce(
-      (acc, entry) => {
-        acc.total += 1;
-        acc.byLevel[entry.level] = (acc.byLevel[entry.level] || 0) + 1;
-        const duration = entry.details && Number(entry.details.durationMs);
-        if (Number.isFinite(duration)) {
-          acc.timings.count += 1;
-          acc.timings.sum += duration;
-          acc.timings.max = Math.max(acc.timings.max, duration);
-          acc.timings.min = Math.min(acc.timings.min, duration);
-        }
-        return acc;
-      },
-      {
-        total: 0,
-        byLevel: {},
-        timings: {
-          count: 0,
-          sum: 0,
-          max: Number.NEGATIVE_INFINITY,
-          min: Number.POSITIVE_INFINITY
+  function calculateBottleCost(formula, materialCatalog, options = {}) {
+    const normalizedFormula = normalizeFormula(formula);
+    if (!materialCatalog || typeof materialCatalog !== 'object') {
+      throw new Error('Material catalog must be provided as an object keyed by materialId.');
+    }
+    const margin = options.marginPercentage != null ? Number(options.marginPercentage) : 0.2;
+    if (!Number.isFinite(margin) || margin < 0) {
+      throw new Error('Margin percentage must be a non-negative number.');
+    }
+
+    let totalCost = 0;
+    const components = normalizedFormula.map(({ materialId, quantityMg }) => {
+      const catalogEntry = materialCatalog[materialId];
+      if (!catalogEntry) {
+        throw new Error(`Material ${materialId} missing from catalog.`);
+      }
+      const pricePerMg = Number(catalogEntry.pricePerMg);
+      if (!Number.isFinite(pricePerMg) || pricePerMg < 0) {
+        throw new Error(`Material ${materialId} has invalid price.`);
+      }
+      const wastageRate = Number(catalogEntry.wastageRate || 0);
+      if (wastageRate < 0 || wastageRate >= 1) {
+        throw new Error(`Material ${materialId} has invalid wastage rate.`);
+      }
+      const effectiveQuantity = quantityMg / (1 - wastageRate);
+      const cost = effectiveQuantity * pricePerMg;
+      totalCost += cost;
+      return {
+        materialId,
+        quantityMg,
+        effectiveQuantity,
+        pricePerMg,
+        cost: roundToTwo(cost)
+      };
+    });
+
+    const roundedCost = roundToTwo(totalCost);
+    const marginAmount = roundToTwo(roundedCost * margin);
+    const sellingPrice = roundToTwo(roundedCost + marginAmount);
+
+    return {
+      currency: COST_CONSTANTS.currency,
+      marginPercentage: margin,
+      cost: roundedCost,
+      marginAmount,
+      sellingPrice,
+      components
+    };
+  }
+
+  function summarizeFormula(formula) {
+    const normalizedFormula = normalizeFormula(formula);
+    const totalQuantity = normalizedFormula.reduce((acc, item) => acc + item.quantityMg, 0);
+    return {
+      totalComponents: normalizedFormula.length,
+      totalQuantityMg: totalQuantity
+    };
+  }
+
+  const exported = {
+    COST_CONSTANTS,
+    calculateBottleCost,
+    summarizeFormula
+  };
+
+  if (typeof module !== 'undefined' && module.exports) {
+    module.exports = exported;
+  }
+
+  if (typeof globalThis !== 'undefined') {
+    globalThis.PerfumeLib = globalThis.PerfumeLib || {};
+    globalThis.PerfumeLib.costCalculator = exported;
+  }
+
+})();
+// END costCalculator.js
+
+
+// BEGIN logBuffer.js
+(() => {
+  var PerfumeLib =
+    (typeof globalThis !== 'undefined' && globalThis.PerfumeLib) ||
+    (typeof self !== 'undefined' && self.PerfumeLib) ||
+    {};
+  const { maskSensitiveFields } = (PerfumeLib.masker || {});
+  const { validateLogEntry } = (PerfumeLib.logSchema || {});
+
+  class LogBuffer {
+    constructor(options = {}) {
+      const {
+        capacity = 2000,
+        retentionMs = 1000 * 60 * 60 * 24 * 30,
+        batchSize = 40,
+        persistHandler = null,
+        now = () => Date.now()
+      } = options;
+
+      this.capacity = capacity;
+      this.retentionMs = retentionMs;
+      this.batchSize = batchSize;
+      this.persistHandler = persistHandler;
+      this.now = now;
+      this.buffer = [];
+      this.batch = [];
+      this.lastFlush = 0;
+    }
+
+    normalize(entry) {
+      const candidate = Object.assign({}, entry);
+      candidate.timestamp = candidate.timestamp ? new Date(candidate.timestamp).toISOString() : new Date(this.now()).toISOString();
+      candidate.details = candidate.details && typeof candidate.details === 'object' ? candidate.details : {};
+      candidate.context = candidate.context && typeof candidate.context === 'object' ? candidate.context : {};
+      return candidate;
+    }
+
+    add(entry) {
+      const normalized = this.normalize(entry);
+      const validation = validateLogEntry ? validateLogEntry(normalized) : { valid: true, errors: [] };
+      if (!validation.valid) {
+        const error = new Error(`Invalid log entry: ${validation.errors.join('; ')}`);
+        error.validation = validation;
+        throw error;
+      }
+      const masked = maskSensitiveFields ? maskSensitiveFields(normalized) : normalized;
+      this.buffer.push(masked);
+      if (this.buffer.length > this.capacity) {
+        this.buffer.splice(0, this.buffer.length - this.capacity);
+      }
+      this.trimRetention();
+      this.batch.push(masked);
+      if (this.batch.length >= this.batchSize) {
+        this.flush();
+      }
+      return masked;
+    }
+
+    addMany(entries) {
+      if (!Array.isArray(entries)) {
+        throw new Error('addMany expects an array.');
+      }
+      return entries.map((entry) => this.add(entry));
+    }
+
+    trimRetention() {
+      if (!this.retentionMs) return;
+      const threshold = this.now() - this.retentionMs;
+      while (this.buffer.length > 0) {
+        const entry = this.buffer[0];
+        if (Date.parse(entry.timestamp) < threshold) {
+          this.buffer.shift();
+        } else {
+          break;
         }
       }
-    );
-    if (totals.timings.count === 0) {
-      totals.timings.avg = 0;
-      totals.timings.max = 0;
-      totals.timings.min = 0;
-    } else {
-      totals.timings.avg = totals.timings.sum / totals.timings.count;
     }
-    return totals;
-  }
 
-  toJSONL(entries = this.buffer) {
-    return entries.map((entry) => JSON.stringify(entry)).join('\n');
-  }
-
-  toCSV(entries = this.buffer) {
-    if (entries.length === 0) {
-      return 'timestamp,level,origin,category,message,sessionId,requestId';
+    flush() {
+      if (!this.persistHandler || this.batch.length === 0) {
+        this.batch = [];
+        return [];
+      }
+      const payload = this.batch.slice();
+      this.batch = [];
+      this.lastFlush = this.now();
+      this.persistHandler(payload);
+      return payload;
     }
-    const header = ['timestamp', 'level', 'origin', 'category', 'message', 'sessionId', 'requestId'];
-    const rows = entries.map((entry) =>
-      header
-        .map((key) => {
-          const value = entry[key] != null ? String(entry[key]).replace(/"/g, '""') : '';
-          return `"${value}"`;
-        })
-        .join(',')
-    );
-    return [header.join(','), ...rows].join('\n');
+
+    getEntries(filters = {}) {
+      const { level, origin, category, search, since } = filters;
+      return this.buffer.filter((entry) => {
+        if (level && entry.level !== level) return false;
+        if (origin && entry.origin !== origin) return false;
+        if (category && entry.category !== category) return false;
+        if (since && Date.parse(entry.timestamp) < Date.parse(since)) return false;
+        if (search) {
+          const haystack = JSON.stringify(entry).toLowerCase();
+          if (!haystack.includes(String(search).toLowerCase())) {
+            return false;
+          }
+        }
+        return true;
+      });
+    }
+
+    stats(filters = {}) {
+      const entries = this.getEntries(filters);
+      const totals = entries.reduce(
+        (acc, entry) => {
+          acc.total += 1;
+          acc.byLevel[entry.level] = (acc.byLevel[entry.level] || 0) + 1;
+          const duration = entry.details && Number(entry.details.durationMs);
+          if (Number.isFinite(duration)) {
+            acc.timings.count += 1;
+            acc.timings.sum += duration;
+            acc.timings.max = Math.max(acc.timings.max, duration);
+            acc.timings.min = Math.min(acc.timings.min, duration);
+          }
+          return acc;
+        },
+        {
+          total: 0,
+          byLevel: {},
+          timings: {
+            count: 0,
+            sum: 0,
+            max: Number.NEGATIVE_INFINITY,
+            min: Number.POSITIVE_INFINITY
+          }
+        }
+      );
+      if (totals.timings.count === 0) {
+        totals.timings.avg = 0;
+        totals.timings.max = 0;
+        totals.timings.min = 0;
+      } else {
+        totals.timings.avg = totals.timings.sum / totals.timings.count;
+      }
+      return totals;
+    }
+
+    toJSONL(entries = this.buffer) {
+      return entries.map((entry) => JSON.stringify(entry)).join('\n');
+    }
+
+    toCSV(entries = this.buffer) {
+      if (entries.length === 0) {
+        return 'timestamp,level,origin,category,message,sessionId,requestId';
+      }
+      const header = ['timestamp', 'level', 'origin', 'category', 'message', 'sessionId', 'requestId'];
+      const rows = entries.map((entry) =>
+        header
+          .map((key) => {
+            const value = entry[key] != null ? String(entry[key]).replace(/"/g, '""') : '';
+            return `"${value}"`;
+          })
+          .join(',')
+      );
+      return [header.join(','), ...rows].join('\n');
+    }
   }
-}
 
-const exported = {
-  LogBuffer
-};
+  const exported = {
+    LogBuffer
+  };
 
-if (typeof module !== 'undefined' && module.exports) {
-  module.exports = exported;
-}
+  if (typeof module !== 'undefined' && module.exports) {
+    module.exports = exported;
+  }
 
-if (typeof globalThis !== 'undefined') {
-  globalThis.PerfumeLib = globalThis.PerfumeLib || {};
-  globalThis.PerfumeLib.logBuffer = exported;
-}
+  if (typeof globalThis !== 'undefined') {
+    globalThis.PerfumeLib = globalThis.PerfumeLib || {};
+    globalThis.PerfumeLib.logBuffer = exported;
+  }
 
+})();
 // END logBuffer.js
 
+
 // BEGIN logSchema.js
-var PerfumeLib =
-  (typeof globalThis !== 'undefined' && globalThis.PerfumeLib) ||
-  (typeof self !== 'undefined' && self.PerfumeLib) ||
-  {};
+(() => {
+  var PerfumeLib =
+    (typeof globalThis !== 'undefined' && globalThis.PerfumeLib) ||
+    (typeof self !== 'undefined' && self.PerfumeLib) ||
+    {};
 
-const LEVELS = ['debug', 'info', 'warn', 'error'];
-const ORIGINS = ['client', 'server'];
-const CATEGORIES = ['auth', 'sheet', 'ui', 'http', 'job'];
+  const LEVELS = ['debug', 'info', 'warn', 'error'];
+  const ORIGINS = ['client', 'server'];
+  const CATEGORIES = ['auth', 'sheet', 'ui', 'http', 'job'];
 
-function isNonEmptyString(value) {
-  return typeof value === 'string' && value.trim().length > 0;
-}
-
-function isPlainObject(value) {
-  return value != null && typeof value === 'object' && !Array.isArray(value);
-}
-
-function validateLogEntry(entry) {
-  const errors = [];
-  if (!isPlainObject(entry)) {
-    errors.push('Log entry must be an object.');
-    return { valid: false, errors };
+  function isNonEmptyString(value) {
+    return typeof value === 'string' && value.trim().length > 0;
   }
 
-  if (!isNonEmptyString(entry.timestamp) || Number.isNaN(Date.parse(entry.timestamp))) {
-    errors.push('timestamp must be an ISO string.');
-  }
-  if (!LEVELS.includes(entry.level)) {
-    errors.push(`level must be one of ${LEVELS.join(', ')}.`);
-  }
-  if (!ORIGINS.includes(entry.origin)) {
-    errors.push(`origin must be one of ${ORIGINS.join(', ')}.`);
-  }
-  if (!CATEGORIES.includes(entry.category)) {
-    errors.push(`category must be one of ${CATEGORIES.join(', ')}.`);
-  }
-  if (!isNonEmptyString(entry.message)) {
-    errors.push('message must be a non-empty string.');
-  }
-  if (!isPlainObject(entry.details)) {
-    errors.push('details must be an object.');
-  }
-  if (!isNonEmptyString(entry.sessionId)) {
-    errors.push('sessionId is required.');
-  }
-  if (!isNonEmptyString(entry.requestId)) {
-    errors.push('requestId is required.');
-  }
-  if (!isPlainObject(entry.context)) {
-    errors.push('context must be an object.');
+  function isPlainObject(value) {
+    return value != null && typeof value === 'object' && !Array.isArray(value);
   }
 
-  return {
-    valid: errors.length === 0,
-    errors
+  function validateLogEntry(entry) {
+    const errors = [];
+    if (!isPlainObject(entry)) {
+      errors.push('Log entry must be an object.');
+      return { valid: false, errors };
+    }
+
+    if (!isNonEmptyString(entry.timestamp) || Number.isNaN(Date.parse(entry.timestamp))) {
+      errors.push('timestamp must be an ISO string.');
+    }
+    if (!LEVELS.includes(entry.level)) {
+      errors.push(`level must be one of ${LEVELS.join(', ')}.`);
+    }
+    if (!ORIGINS.includes(entry.origin)) {
+      errors.push(`origin must be one of ${ORIGINS.join(', ')}.`);
+    }
+    if (!CATEGORIES.includes(entry.category)) {
+      errors.push(`category must be one of ${CATEGORIES.join(', ')}.`);
+    }
+    if (!isNonEmptyString(entry.message)) {
+      errors.push('message must be a non-empty string.');
+    }
+    if (!isPlainObject(entry.details)) {
+      errors.push('details must be an object.');
+    }
+    if (!isNonEmptyString(entry.sessionId)) {
+      errors.push('sessionId is required.');
+    }
+    if (!isNonEmptyString(entry.requestId)) {
+      errors.push('requestId is required.');
+    }
+    if (!isPlainObject(entry.context)) {
+      errors.push('context must be an object.');
+    }
+
+    return {
+      valid: errors.length === 0,
+      errors
+    };
+  }
+
+  const exported = {
+    LEVELS,
+    ORIGINS,
+    CATEGORIES,
+    validateLogEntry
   };
-}
 
-const exported = {
-  LEVELS,
-  ORIGINS,
-  CATEGORIES,
-  validateLogEntry
-};
+  if (typeof module !== 'undefined' && module.exports) {
+    module.exports = exported;
+  }
 
-if (typeof module !== 'undefined' && module.exports) {
-  module.exports = exported;
-}
+  if (typeof globalThis !== 'undefined') {
+    globalThis.PerfumeLib = globalThis.PerfumeLib || {};
+    globalThis.PerfumeLib.logSchema = exported;
+  }
 
-if (typeof globalThis !== 'undefined') {
-  globalThis.PerfumeLib = globalThis.PerfumeLib || {};
-  globalThis.PerfumeLib.logSchema = exported;
-}
-
+})();
 // END logSchema.js
 
+
 // BEGIN masker.js
-var PerfumeLib =
-  (typeof globalThis !== 'undefined' && globalThis.PerfumeLib) ||
-  (typeof self !== 'undefined' && self.PerfumeLib) ||
-  {};
+(() => {
+  var PerfumeLib =
+    (typeof globalThis !== 'undefined' && globalThis.PerfumeLib) ||
+    (typeof self !== 'undefined' && self.PerfumeLib) ||
+    {};
 
-const SENSITIVE_KEYS = [
-  'password',
-  'passwd',
-  'token',
-  'secret',
-  'key',
-  'apiKey',
-  'card',
-  'authorization',
-  'auth',
-  'credential'
-];
+  const SENSITIVE_KEYS = [
+    'password',
+    'passwd',
+    'token',
+    'secret',
+    'key',
+    'apiKey',
+    'card',
+    'authorization',
+    'auth',
+    'credential'
+  ];
 
-const MASK_VALUE = '[MASKED]';
+  const MASK_VALUE = '[MASKED]';
 
-function isSensitiveKey(key) {
-  if (!key) return false;
-  const lower = String(key).toLowerCase();
-  return SENSITIVE_KEYS.some((keyword) => lower.includes(keyword));
-}
+  function isSensitiveKey(key) {
+    if (!key) return false;
+    const lower = String(key).toLowerCase();
+    return SENSITIVE_KEYS.some((keyword) => lower.includes(keyword));
+  }
 
-function maskValue(value) {
-  if (value == null) {
-    return value;
-  }
-  if (typeof value === 'string') {
-    return MASK_VALUE;
-  }
-  if (typeof value === 'number' || typeof value === 'boolean') {
-    return MASK_VALUE;
-  }
-  if (Array.isArray(value)) {
-    return value.map(() => MASK_VALUE);
-  }
-  if (value instanceof Date) {
-    return MASK_VALUE;
-  }
-  return MASK_VALUE;
-}
-
-function maskSensitiveFields(input, seen = new WeakSet()) {
-  if (input == null || typeof input !== 'object') {
-    return input;
-  }
-  if (seen.has(input)) {
-    return input;
-  }
-  seen.add(input);
-  const clone = Array.isArray(input) ? [] : {};
-  const entries = Object.entries(input);
-  for (const [key, value] of entries) {
-    if (isSensitiveKey(key)) {
-      clone[key] = maskValue(value);
-      continue;
+  function maskValue(value) {
+    if (value == null) {
+      return value;
     }
-    if (value != null && typeof value === 'object') {
-      clone[key] = maskSensitiveFields(value, seen);
-    } else {
-      clone[key] = value;
+    if (typeof value === 'string') {
+      return MASK_VALUE;
     }
+    if (typeof value === 'number' || typeof value === 'boolean') {
+      return MASK_VALUE;
+    }
+    if (Array.isArray(value)) {
+      return value.map(() => MASK_VALUE);
+    }
+    if (value instanceof Date) {
+      return MASK_VALUE;
+    }
+    return MASK_VALUE;
   }
-  return clone;
-}
 
-const exported = {
-  maskSensitiveFields,
-  isSensitiveKey,
-  MASK_VALUE
-};
+  function maskSensitiveFields(input, seen = new WeakSet()) {
+    if (input == null || typeof input !== 'object') {
+      return input;
+    }
+    if (seen.has(input)) {
+      return input;
+    }
+    seen.add(input);
+    const clone = Array.isArray(input) ? [] : {};
+    const entries = Object.entries(input);
+    for (const [key, value] of entries) {
+      if (isSensitiveKey(key)) {
+        clone[key] = maskValue(value);
+        continue;
+      }
+      if (value != null && typeof value === 'object') {
+        clone[key] = maskSensitiveFields(value, seen);
+      } else {
+        clone[key] = value;
+      }
+    }
+    return clone;
+  }
 
-if (typeof module !== 'undefined' && module.exports) {
-  module.exports = exported;
-}
+  const exported = {
+    maskSensitiveFields,
+    isSensitiveKey,
+    MASK_VALUE
+  };
 
-if (typeof globalThis !== 'undefined') {
-  globalThis.PerfumeLib = globalThis.PerfumeLib || {};
-  globalThis.PerfumeLib.masker = exported;
-}
+  if (typeof module !== 'undefined' && module.exports) {
+    module.exports = exported;
+  }
 
+  if (typeof globalThis !== 'undefined') {
+    globalThis.PerfumeLib = globalThis.PerfumeLib || {};
+    globalThis.PerfumeLib.masker = exported;
+  }
+
+})();
 // END masker.js
-
 </script>

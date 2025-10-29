@@ -1,0 +1,25 @@
+{
+  "name": "perfume",
+  "version": "1.0.0",
+  "description": "Google Apps Script perfume manufacturing web app with logging",
+  "scripts": {
+    "test": "jest --coverage",
+    "test:watch": "jest --watch",
+    "build:bundles": "node scripts/generateBundles.js"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "devDependencies": {
+    "@babel/preset-env": "^7.28.5",
+    "babel-jest": "^30.2.0",
+    "jest": "^30.2.0"
+  },
+  "jest": {
+    "testEnvironment": "node",
+    "collectCoverageFrom": [
+      "src/lib/**/*.js"
+    ]
+  }
+}

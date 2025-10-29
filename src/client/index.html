@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <base target="_top" />
+    <meta charset="UTF-8" />
+    <title>Perfume Production</title>
+    <?!= include('client/styles'); ?>
+    <?!= HtmlService.createHtmlOutputFromFile('client/perfumeLibBundle').getContent(); ?>
+  </head>
+  <body data-session-id="<?= context.sessionId ?>">
+    <header class="app-header">
+      <h1>Perfume Manufacturing Console</h1>
+      <nav class="app-nav" role="tablist">
+        <button class="tab-button" data-tab="inventory" aria-selected="true">Inventory</button>
+        <button class="tab-button" data-tab="production" aria-selected="false">Production</button>
+        <button class="tab-button" data-tab="logs" aria-selected="false">Logs</button>
+      </nav>
+    </header>
+    <main id="app-root">
+      <section id="inventory" class="tab-panel" role="tabpanel">
+        <h2>Materials & Purchases</h2>
+        <form id="purchase-form" class="card" aria-label="Record purchase">
+          <div class="form-grid">
+            <label>
+              Material ID
+              <input name="materialId" required aria-required="true" />
+            </label>
+            <label>
+              Name
+              <input name="name" />
+            </label>
+            <label>
+              Vendor
+              <input name="vendor" />
+            </label>
+            <label>
+              Quantity (mg)
+              <input type="number" name="quantityMg" required min="1" step="0.01" />
+            </label>
+            <label>
+              Total Cost
+              <input type="number" name="totalCost" required min="0" step="0.01" />
+            </label>
+            <label class="full-width">
+              Notes
+              <textarea name="notes" rows="2"></textarea>
+            </label>
+          </div>
+          <button type="submit">Record Purchase</button>
+        </form>
+        <div class="card">
+          <h3>Materials</h3>
+          <table class="data-table" aria-label="Materials">
+            <thead>
+              <tr>
+                <th>ID</th>
+                <th>Name</th>
+                <th>Vendor</th>
+                <th>Price/mg</th>
+                <th>Stock (mg)</th>
+                <th>Last Purchase</th>
+              </tr>
+            </thead>
+            <tbody id="materials-body"></tbody>
+          </table>
+        </div>
+        <div class="card">
+          <h3>Recent Purchases</h3>
+          <table class="data-table" aria-label="Purchases">
+            <thead>
+              <tr>
+                <th>Timestamp</th>
+                <th>Material</th>
+                <th>Vendor</th>
+                <th>Quantity (mg)</th>
+                <th>Total Cost</th>
+                <th>Unit Price</th>
+                <th>Notes</th>
+              </tr>
+            </thead>
+            <tbody id="purchases-body"></tbody>
+          </table>
+        </div>
+      </section>
+      <section id="production" class="tab-panel hidden" role="tabpanel" aria-hidden="true">
+        <h2>Formulas & Production</h2>
+        <form id="formula-form" class="card" aria-label="Save formula">
+          <div class="form-grid">
+            <label>
+              Formula ID
+              <input name="formulaId" />
+            </label>
+            <label>
+              Name
+              <input name="name" required />
+            </label>
+            <label class="full-width">
+              Description
+              <textarea name="description" rows="2"></textarea>
+            </label>
+            <label>
+              Margin (%)
+              <input type="number" name="margin" min="0" step="0.01" value="25" />
+            </label>
+          </div>
+          <div class="components-panel">
+            <h3>Components</h3>
+            <div id="components-list" class="component-list"></div>
+            <button type="button" id="add-component">Add Component</button>
+          </div>
+          <button type="submit">Save Formula</button>
+        </form>
+        <div class="card">
+          <h3>Saved Formulas</h3>
+          <table class="data-table" aria-label="Formulas">
+            <thead>
+              <tr>
+                <th>ID</th>
+                <th>Name</th>
+                <th>Margin</th>
+                <th>Cost</th>
+                <th>Selling Price</th>
+              </tr>
+            </thead>
+            <tbody id="formulas-body"></tbody>
+          </table>
+        </div>
+        <form id="production-form" class="card" aria-label="Record production">
+          <div class="form-grid">
+            <label>
+              Bottle ID
+              <input name="bottleId" />
+            </label>
+            <label>
+              Formula ID
+              <input name="formulaId" />
+            </label>
+            <label>
+              Margin (%)
+              <input type="number" name="margin" min="0" step="0.01" value="25" />
+            </label>
+            <label class="full-width">
+              Notes
+              <textarea name="notes" rows="2"></textarea>
+            </label>
+          </div>
+          <div class="components-panel">
+            <h3>Batch Components</h3>
+            <div id="production-components" class="component-list"></div>
+            <button type="button" id="add-production-component">Add Component</button>
+          </div>
+          <button type="submit">Record Bottle</button>
+        </form>
+      </section>
+      <section id="logs" class="tab-panel hidden" role="tabpanel" aria-hidden="true">
+        <h2>Logs</h2>
+        <div class="card">
+          <form id="log-filters" class="form-grid" aria-label="Filter logs">
+            <label>
+              Level
+              <select name="level">
+                <option value="">All</option>
+                <option value="debug">Debug</option>
+                <option value="info">Info</option>
+                <option value="warn">Warn</option>
+                <option value="error">Error</option>
+              </select>
+            </label>
+            <label>
+              Origin
+              <select name="origin">
+                <option value="">All</option>
+                <option value="client">Client</option>
+                <option value="server">Server</option>
+              </select>
+            </label>
+            <label>
+              Category
+              <select name="category">
+                <option value="">All</option>
+                <option value="auth">Auth</option>
+                <option value="sheet">Sheet</option>
+                <option value="ui">UI</option>
+                <option value="http">HTTP</option>
+                <option value="job">Job</option>
+              </select>
+            </label>
+            <label class="full-width">
+              Search
+              <input name="search" placeholder="Search message or details" />
+            </label>
+            <label>
+              Since
+              <input type="datetime-local" name="since" />
+            </label>
+            <div class="button-group">
+              <button type="submit">Apply</button>
+              <button type="button" id="reset-filters">Reset</button>
+            </div>
+          </form>
+          <div class="logs-toolbar">
+            <button type="button" id="toggle-live">Start Live Tail</button>
+            <button type="button" id="export-jsonl">Export JSONL</button>
+            <button type="button" id="export-csv">Export CSV</button>
+            <button type="button" id="copy-selection">Copy Selected</button>
+            <span id="log-stats" role="status" aria-live="polite"></span>
+          </div>
+          <div class="logs-container" role="grid" aria-rowcount="0">
+            <table class="data-table" id="logs-table">
+              <thead>
+                <tr>
+                  <th>Timestamp</th>
+                  <th>Level</th>
+                  <th>Origin</th>
+                  <th>Category</th>
+                  <th>Message</th>
+                  <th>Request</th>
+                </tr>
+              </thead>
+              <tbody id="logs-body"></tbody>
+            </table>
+            <aside id="log-details" aria-live="polite" aria-label="Log details"></aside>
+          </div>
+        </div>
+      </section>
+    </main>
+    <?!= include('client/appScript'); ?>
+  </body>
+</html>

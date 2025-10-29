@@ -41,7 +41,7 @@ A Google Apps Script web application tailored for a single self-employed perfume
 - **Shared library bundle**: `src/server/perfumeLibBundle.gs` is auto-generated from `src/lib` to make reusable utilities available to Apps Script. Each embedded module is wrapped in an IIFE to avoid top-level constant redeclarations when pasted into Apps Script.
 
 ### Client (HTML Service)
-- **HTML shell**: `src/client/index.html` builds a multi-tab interface (Inventory, Production, Logs) and injects shared libraries via `src/client/perfumeLibBundle.html`.
+- **HTML shell**: `src/client/index.html` builds a multi-tab interface (Inventory, Production, Logs) and injects shared libraries via `src/client/perfumeLibClientBundle.html` (renamed to avoid Apps Script filename collisions between `.gs` and `.html`).
 - **Styling**: `src/client/styles.html` provides responsive, accessible styles.
 - **Behavior**: `src/client/appScript.html` initializes state, wires form submissions, maintains log filters, implements live-tail polling, performs schema validation, and funnels client telemetry back to the server.
 
@@ -78,7 +78,7 @@ A Google Apps Script web application tailored for a single self-employed perfume
 
 ## Development & Deployment
 1. Install dependencies: `npm install`.
-2. Generate Apps Script/client bundles after updating shared libs: `npm run build:bundles` (updates `src/server/perfumeLibBundle.gs` and `src/client/perfumeLibBundle.html`) and automatically wraps each module in an isolated scope for Apps Script compatibility.
+2. Generate Apps Script/client bundles after updating shared libs: `npm run build:bundles` (updates `src/server/perfumeLibBundle.gs` and `src/client/perfumeLibClientBundle.html`) and automatically wraps each module in an isolated scope for Apps Script compatibility.
 3. For deployment, copy the contents of `src/server/*.gs`, `src/client/*.html`, and `src/assets` (if any) into a Google Apps Script project bound to the target spreadsheet. Ensure the spreadsheet contains (or let the script create) the sheets listed above.
 4. Set up triggers as desired (e.g., `onOpen` is auto-discovered). The web app should be deployed as a “Web app” within Apps Script with appropriate access permissions.
 
@@ -89,9 +89,10 @@ A Google Apps Script web application tailored for a single self-employed perfume
   - `__tests__/logBuffer.test.js`: Exercises masking, schema enforcement, batching, filtering, exports, and stats aggregation.
   - `__tests__/logSchema.test.js`: Confirms schema validation guards.
   - `__tests__/masker.test.js`: Covers recursive masking, arrays, and cyclic structures.
-  - `__tests__/generateBundles.test.js`: Regenerates the Apps Script bundle, asserts modules are IIFE-wrapped, and compiles the generated file to catch syntax issues before deployment.
-- **Latest run**: `npm test` (see coverage summary in terminal output). Target coverage (>80% per module) is met across shared libraries.
+- `__tests__/generateBundles.test.js`: Regenerates the Apps Script bundle, asserts modules are IIFE-wrapped, ensures the client bundle is emitted inside a script tag, and compiles the generated file to catch syntax issues before deployment.
+- **Latest run**: `npm test -- --coverage` (Jest already runs with coverage via package script). Confirms bundle generation checks (including the client HTML rename) and keeps target coverage (>80% per module) across shared libraries.
 
 ## Changelog
+- **2025-10-31**: Renamed the generated client bundle to `src/client/perfumeLibClientBundle.html` to resolve Apps Script filename collisions, updated the bundle generator/test suite, and documented the new deployment step.
 - **2025-10-30**: Wrapped generated bundle modules in IIFEs to prevent duplicate identifier errors in Apps Script, exported the bundle generator for reuse/tests, and added Jest coverage to ensure bundle compilation safety.
 - **2025-10-29**: Initial implementation of perfume manufacturing web app with Google Sheets backend, shared library bundles, full logging subsystem, client UI (Inventory/Production/Logs), and Jest test coverage with masking/schema/buffering cases.

@@ -4,7 +4,7 @@ const path = require('path');
 const projectRoot = path.resolve(__dirname, '..');
 const libDir = path.join(projectRoot, 'src', 'lib');
 const serverBundlePath = path.join(projectRoot, 'src', 'server', 'perfumeLibBundle.gs');
-const clientBundlePath = path.join(projectRoot, 'src', 'client', 'perfumeLibBundle.html');
+const clientBundlePath = path.join(projectRoot, 'src', 'client', 'perfumeLibClientBundle.html');
 
 function indent(content) {
   return content
